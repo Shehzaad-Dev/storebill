@@ -1,0 +1,52 @@
+name: Build & Test
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Setup Flutter
+      uses: subosito/flutter-action@v2
+      with:
+        flutter-version: '3.19.5'
+        channel: 'stable'
+    
+    - name: Install dependencies
+      run: |
+        flutter pub get
+        flutter pub global activate intl_utils
+    
+    - name: Generate localizations
+      run: flutter gen-l10n
+    
+    - name: Analyze
+      run: flutter analyze
+    
+    - name: Run tests
+      run: flutter test
+    
+    - name: Build APK
+      run: flutter build apk --release --split-per-abi
+    
+    - name: Build AppBundle
+      run: flutter build appbundle --release
+    
+    - name: Upload APK
+      uses: actions/upload-artifact@v3
+      with:
+        name: app-release-apk
+        path: build/app/outputs/flutter-apk/
+    
+    - name: Upload AppBundle
+      uses: actions/upload-artifact@v3
+      with:
+        name: app-release-bundle
+        path: build/app/outputs/bundle/release/app-release.aab

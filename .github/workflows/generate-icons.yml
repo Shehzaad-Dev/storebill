@@ -1,0 +1,43 @@
+name: Generate App Icons
+
+on:
+  push:
+    branches: [ main, develop ]
+    paths:
+      - 'assets/icon*.png'
+      - 'flutter_launcher_icons.yaml'
+      - '.github/workflows/generate-icons.yml'
+  workflow_dispatch:
+
+jobs:
+  generate-icons:
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Setup Flutter
+      uses: subosito/flutter-action@v2
+      with:
+        flutter-version: '3.19.5'
+        channel: 'stable'
+    
+    - name: Install dependencies
+      run: flutter pub get
+    
+    - name: Generate app icons
+      run: flutter pub run flutter_launcher_icons
+    
+    - name: Commit icon changes
+      run: |
+        git config --local user.email "action@github.com"
+        git config --local user.name "GitHub Action"
+        git add -A
+        git commit -m "chore: regenerate app icons [skip ci]" || true
+    
+    - name: Push changes
+      uses: ad-m/github-push-action@master
+      with:
+        github_token: ${{ secrets.GITHUB_TOKEN }}
+        branch: ${{ github.ref }}
+        force: false

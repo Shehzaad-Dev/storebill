@@ -1,0 +1,84 @@
+name: Create Release
+
+on:
+  push:
+    branches: [ main ]
+    paths:
+      - 'pubspec.yaml'
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Release version'
+        required: true
+        type: string
+
+jobs:
+  create-release:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+    - uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+    
+    - name: Extract version
+      id: version
+      run: |
+        VERSION=$(grep "^version:" pubspec.yaml | awk '{print $2}' | cut -d'+' -f1)
+        echo "version=$VERSION" >> $GITHUB_OUTPUT
+        echo "tag=v$VERSION" >> $GITHUB_OUTPUT
+    
+    - name: Check if release exists
+      id: check-release
+      run: |
+        if git rev-parse "v${{ steps.version.outputs.version }}" >/dev/null 2>&1; then
+          echo "exists=true" >> $GITHUB_OUTPUT
+        else
+          echo "exists=false" >> $GITHUB_OUTPUT
+        fi
+    
+    - name: Get recent commits
+      id: commits
+      if: steps.check-release.outputs.exists == 'false'
+      run: |
+        LAST_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "")
+        if [ -z "$LAST_TAG" ]; then
+          COMMITS=$(git log --oneline | head -20)
+        else
+          COMMITS=$(git log $LAST_TAG..HEAD --oneline)
+        fi
+        echo "messages<<EOF" >> $GITHUB_OUTPUT
+        echo "$COMMITS" >> $GITHUB_OUTPUT
+        echo "EOF" >> $GITHUB_OUTPUT
+    
+    - name: Create Release
+      if: steps.check-release.outputs.exists == 'false'
+      uses: softprops/action-gh-release@v1
+      with:
+        tag_name: ${{ steps.version.outputs.tag }}
+        name: "DukaanDoc ${{ steps.version.outputs.version }}"
+        body: |
+          ## Release: DukaanDoc v${{ steps.version.outputs.version }}
+          
+          **Changes:**
+          ```
+          ${{ steps.commits.outputs.messages }}
+          ```
+          
+          ### Features
+          - Offline invoice & receipt generation
+          - Business card builder with QR codes
+          - Khata book (customer ledger)
+          - Multi-language support (English, Urdu)
+          - Dark mode
+          - Complete data privacy - no cloud storage
+          - Free forever
+          
+          ### Download
+          Available on Google Play Store and App Store
+        draft: false
+        prerelease: false
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
